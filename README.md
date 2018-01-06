@@ -1,2 +1,1 @@
-# ecs-cfn
-Cloudformation code to setup ECS
+# Deploying Jenkins as microservice with Amazon ECS, AWS CloudFormation, and an Application Load Balancer
