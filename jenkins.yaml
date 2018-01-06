@@ -57,7 +57,7 @@ Parameters:
     JenkinsTag:
         Description: Tag of the jenkins image
         Type: String
-        Default: master
+        Default: master_v1
 
     SlaveTag:
         Description: Tag of the jenkins slave image
