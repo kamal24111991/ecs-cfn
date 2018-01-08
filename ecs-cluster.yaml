@@ -13,16 +13,15 @@ Description: >
 
     Author: Sandeep Mahto <sandeep.mahto@opstree.com>
 
-Parameters: 
-    KeyName: 
-        Description: Amazon EC2 Key Pair
+Parameters:
+    KeyName:
+        Description: Amazon EC2 Key Pair | Make sure it already exists
         Type: "AWS::EC2::KeyPair::KeyName"
-        Default: jenkins-ecs
 
     ECSInstanceType:
         Description: Which instance type should we use to build the ECS cluster?
         Type: String
-        Default: t2.large
+        Default: t2.nano
 
     ECSClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
@@ -32,38 +31,7 @@ Parameters:
     TemplateBucket:
         Type: String
         Description: Name of the bucket where the id_rsa key is located in an encrypted form
-        Default: jenkins.ecs
-
-    RegionName:
-        Type: String
-        Description: aws region where ecr is located
-        Default: us-east-1
-
-    AccountNumber:
-         Description: Account number is needed for configuring ecs cluster
-         Type: String
-         Default: 405349833286
-
-    JenkinsPassword:
-        Description: Jenkins password to Set
-        Type: String
-        Default: opstree@53725256
-    
-    RepositoryName:
-        Description: ECR name where the jenkins image is located
-        Type: String
-        Default: jenkins
-
-    JenkinsTag:
-        Description: Tag of the jenkins image
-        Type: String
-        Default: master_v1
-
-    SlaveTag:
-        Description: Tag of the jenkins slave image
-        Type: String
-        Default: slave
-
+        Default: ot-cfn-template
 
 Resources:
 
@@ -110,27 +78,7 @@ Resources:
                 Subnets: !GetAtt VPC.Outputs.PrivateSubnets
                 KeyName: !Ref KeyName
 
-    JenkinsService:
-        Type: AWS::CloudFormation::Stack
-        Properties:
-            TemplateURL: !Sub https://s3.amazonaws.com/${TemplateBucket}/services/service.yaml
-            Parameters:
-                VPC: !GetAtt VPC.Outputs.VPC
-                Cluster: !GetAtt ECS.Outputs.Cluster
-                DesiredCount: 1
-                AccountNumber: !Ref AccountNumber
-                JenkinsPassword: !Ref JenkinsPassword
-                RegionName: !Ref RegionName
-                RepositoryName: !Ref RepositoryName
-                JenkinsTag: !Ref JenkinsTag
-                SlaveTag: !Ref SlaveTag
-                Listener: !GetAtt ALB.Outputs.Listener
-                Path: /*
-
-
 Outputs:
-
-
     WebsiteServiceUrl:
-        Description: The URL endpoint for the jenkins service is
-        Value: !Join ["", [ !GetAtt ALB.Outputs.LoadBalancerUrl, "/" ]]
+        Description: ALB ID
+        Value: !GetAtt ALB.Outputs.Listener
