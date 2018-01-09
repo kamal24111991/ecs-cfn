@@ -8,5 +8,6 @@ RUN \
 	rm /var/cache/apk/*
 
 WORKDIR /aws
-ADD ecs-cluster.yaml /tmp/ecs-cluster.yaml
+ADD infrastructure/ /infrastructure
+
 ENTRYPOINT ["aws"]
