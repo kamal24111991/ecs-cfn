@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "MyKey"
+  },
+  {
+    "ParameterKey": "VPC",
+    "ParameterValue": "vpc-78d6e600"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "sandy"
+  }
+]

@@ -1,0 +1,109 @@
+Description: >
+    This template deploys an ECS cluster to the provided VPC and subnets
+    using an Auto Scaling Group
+
+Parameters:
+
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+
+    VPC:
+        Type: AWS::EC2::VPC::Id
+        Description: Choose which VPC the Applicaion Load Balancer should be deployed to
+
+    InstanceType:
+        Description: Which instance type should we use to build the ECS cluster?
+        Type: String
+        Default: t2.nano
+
+    ClusterSize:
+        Description: How many ECS hosts do you want to initially deploy?
+        Type: Number
+        Default: 2
+
+    KeyName:
+        Description: The key name for the ecs host
+        Type: AWS::EC2::KeyPair::KeyName
+
+    MinSize:
+        Type: Number
+        Default: '1'
+        Description: Minimum number of ECS Instances in the ASG
+
+    MaxSize:
+        Type: Number
+        Default: '4'
+        Description: Maximum number of ECS Instances in the ASG
+
+    Desired:
+        Type: Number
+        Default: '1'
+        Description: Desired dumber of ECS Instances in the ASG cannot be less than MinSize
+
+
+
+Mappings:
+
+    # These are the latest ECS optimized AMIs as of September 2016:
+    #
+    #   amzn-ami-2016.03.h-amazon-ecs-optimized
+    #   ECS agent:    1.12.1
+    #   Docker:       1.11.2
+    #   ecs-init:     1.12.1-1
+    #
+    # You can find the latest available on this page of our documentation:
+    # http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html
+    # (note the AMI identifier is region specific)
+
+    AWSRegionToAMI:
+        us-east-1:
+            AMI: ami-13401669
+        us-west-1:
+            AMI: ami-b3adacd3
+        us-west-2:
+            AMI: ami-9a02a9e2
+        eu-west-1:
+            AMI: ami-7827b301
+        eu-central-1:
+            AMI: ami-b378e8dc
+        ap-northeast-1:
+            AMI: ami-af46dbc9
+        ap-southeast-1:
+            AMI: ami-fec3b482
+        ap-southeast-2:
+            AMI: ami-b88e7cda
+
+Resources:
+
+    # This security group defines who/where is allowed to access the Application Load Balancer.
+    # By default, we've opened this up to the public internet (0.0.0.0/0) but can you restrict
+    # it further if you want.
+    LoadBalancerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VPC
+            GroupDescription: Access to the load balancer that sits in front of ECS
+            SecurityGroupIngress:
+                # Allow access from anywhere to our ECS services
+                - CidrIp: 0.0.0.0/0
+                  IpProtocol: -1
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-LoadBalancers
+
+    # This security group defines who/where is allowed to access the ECS hosts directly.
+    # By default we're just allowing access from the load balancer.  If you want to SSH
+    # into the hosts, or expose non-load balanced services you can open their ports here.
+    ECSHostSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            VpcId: !Ref VPC
+            GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
+            SecurityGroupIngress:
+                # Only allow inbound access to ECS from the ELB
+                - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+                  IpProtocol: -1
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-ECS-Hosts
