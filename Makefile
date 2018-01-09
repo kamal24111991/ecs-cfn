@@ -1,6 +1,9 @@
 build:
 	docker build -t opstree/ecsmanager .
 
+get-inside-container:
+	docker run --entrypoint "/bin/sh" -it --rm -v ${PWD}/aws:/root/.aws opstree/ecsmanager
+
 aws-configure:
 	docker run -it --rm -v ${PWD}/aws:/root/.aws opstree/ecsmanager configure
 
