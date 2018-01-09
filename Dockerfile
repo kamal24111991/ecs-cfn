@@ -9,5 +9,6 @@ RUN \
 
 WORKDIR /aws
 ADD infrastructure/ /infrastructure
+ADD sample/ /sample
 
 ENTRYPOINT ["aws"]
