@@ -12,6 +12,14 @@ Parameters:
         Type: AWS::EC2::VPC::Id
         Description: Choose which VPC the Applicaion Load Balancer should be deployed to
 
+    KeyName:
+        Description: The key name for the ecs host
+        Type: AWS::EC2::KeyPair::KeyName
+
+    Subnets:
+        Description: Choose which subnets the Applicaion Load Balancer should be deployed to
+        Type: List<AWS::EC2::Subnet::Id>
+
     InstanceType:
         Description: Which instance type should we use to build the ECS cluster?
         Type: String
@@ -22,9 +30,6 @@ Parameters:
         Type: Number
         Default: 2
 
-    KeyName:
-        Description: The key name for the ecs host
-        Type: AWS::EC2::KeyPair::KeyName
 
     MinSize:
         Type: Number
@@ -107,3 +112,34 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName}-ECS-Hosts
+    LoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Name: !Ref EnvironmentName
+            Subnets: !Ref Subnets
+            SecurityGroups:
+              - !Ref LoadBalancerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+
+    LoadBalancerListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            LoadBalancerArn: !Ref LoadBalancer
+            Port: 80
+            Protocol: HTTP
+            DefaultActions:
+                - Type: forward
+                  TargetGroupArn: !Ref DefaultTargetGroup
+
+    # We define a default target group here, as this is a mandatory Parameters
+    # when creating an Application Load Balancer Listener. This is not used, instead
+    # a target group is created per-service in each service template (../services/*)
+    DefaultTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            Name: !Sub ${EnvironmentName}-default
+            VpcId: !Ref VPC
+            Port: 80
+            Protocol: HTTP

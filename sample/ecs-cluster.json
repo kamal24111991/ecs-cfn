@@ -10,5 +10,9 @@
   {
     "ParameterKey": "KeyName",
     "ParameterValue": "sandy"
+  },
+  {
+    "ParameterKey": "Subnets",
+    "ParameterValue": "subnet-f09dcb94,subnet-08663e43"
   }
 ]
