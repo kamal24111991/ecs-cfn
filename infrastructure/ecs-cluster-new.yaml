@@ -28,7 +28,7 @@ Parameters:
     ClusterSize:
         Description: How many ECS hosts do you want to initially deploy?
         Type: Number
-        Default: 2
+        Default: 1
 
 
     MinSize:
@@ -43,7 +43,7 @@ Parameters:
 
     Desired:
         Type: Number
-        Default: '1'
+        Default: '2'
         Description: Desired dumber of ECS Instances in the ASG cannot be less than MinSize
 
 
@@ -148,6 +148,115 @@ Resources:
         Type: AWS::ECS::Cluster
         Properties:
             ClusterName: !Ref EnvironmentName
+
+    ECSRole:
+        Type: AWS::IAM::Role
+        Properties:
+            Path: /
+            RoleName: !Sub ${EnvironmentName}-ECSRole-${AWS::Region}
+            AssumeRolePolicyDocument: |
+                {
+                    "Statement": [{
+                        "Action": "sts:AssumeRole",
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "ec2.amazonaws.com"
+                        }
+                    }]
+                }
+            Policies:
+                - PolicyName: ecs-service
+                  PolicyDocument: |
+                    {
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": [
+                                "ecs:CreateCluster",
+                                "ecs:DeregisterContainerInstance",
+                                "ecs:DiscoverPollEndpoint",
+                                "ecs:Poll",
+                                "ecs:RegisterContainerInstance",
+                                "ecs:StartTelemetrySession",
+                                "ecs:Submit*",
+                                "ecr:*",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents",
+                                "ecr:BatchCheckLayerAvailability",
+                                "ecr:BatchGetImage",
+                                "ecr:GetDownloadUrlForLayer",
+                                "ecr:GetAuthorizationToken",
+                                "s3:CopyObject",
+                                "s3:GetObject",
+                                "s3:ListObjects",
+                                "s3:PutObject"
+                            ],
+                            "Resource": "*"
+                        }]
+                    }
+    RolePolicies:
+        Type: AWS::IAM::Policy
+        Properties:
+            PolicyName: S3Download
+            PolicyDocument:
+                Statement:
+                - Effect: Allow
+                  Action: "*"
+
+                  Resource: "*"
+            Roles:
+                - !Ref ECSRole
+
+    ECSInstanceProfile:
+        Type: AWS::IAM::InstanceProfile
+        Properties:
+            Path: /
+            Roles:
+                - !Ref ECSRole
+
+    ECSLaunchConfiguration:
+        Type: AWS::AutoScaling::LaunchConfiguration
+        Properties:
+            ImageId:  !FindInMap [AWSRegionToAMI, !Ref "AWS::Region", AMI]
+            InstanceType: !Ref InstanceType
+            KeyName: !Ref KeyName
+            SecurityGroups:
+                - !Ref ECSHostSecurityGroup
+            IamInstanceProfile: !Ref ECSInstanceProfile
+            BlockDeviceMappings:
+              - DeviceName: "/dev/xvda"
+                Ebs:
+                  VolumeSize: "30"
+                  VolumeType: "gp2"
+            UserData:
+                Fn::Base64: !Sub |
+                    #!/bin/bash
+                    yum install -y aws-cfn-bootstrap
+                    /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
+                    /opt/aws/bin/cfn-signal -e 0 --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup
+
+    ECSAutoScalingGroup:
+        Type: AWS::AutoScaling::AutoScalingGroup
+        Properties:
+            VPCZoneIdentifier: !Ref Subnets
+            LaunchConfigurationName: !Ref ECSLaunchConfiguration
+            MinSize: !Ref MinSize
+            MaxSize: !Ref MaxSize
+            DesiredCapacity: !Ref Desired
+            TerminationPolicies:
+                - Default
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} ECS host
+                  PropagateAtLaunch: true
+        CreationPolicy:
+            ResourceSignal:
+                Timeout: PT5M
+        UpdatePolicy:
+            AutoScalingRollingUpdate:
+                MinInstancesInService: 1
+                MaxBatchSize: 1
+                PauseTime: PT5M
+                WaitOnResourceSignals: true
 Outputs:
   Cluster:
       Description: A reference to the ECS cluster
