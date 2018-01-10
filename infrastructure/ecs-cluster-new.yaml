@@ -143,3 +143,12 @@ Resources:
             VpcId: !Ref VPC
             Port: 80
             Protocol: HTTP
+
+    ECSCluster:
+        Type: AWS::ECS::Cluster
+        Properties:
+            ClusterName: !Ref EnvironmentName
+Outputs:
+  Cluster:
+      Description: A reference to the ECS cluster
+      Value: !Ref ECSCluster
