@@ -257,6 +257,80 @@ Resources:
                 MaxBatchSize: 1
                 PauseTime: PT5M
                 WaitOnResourceSignals: true
+
+    ScaleUpPolicy:
+        Type: AWS::AutoScaling::ScalingPolicy
+        Properties:
+            AdjustmentType: ChangeInCapacity
+            AutoScalingGroupName: !Ref ECSAutoScalingGroup
+            EstimatedInstanceWarmup: 300
+            MetricAggregationType: Average
+            PolicyType: StepScaling
+            StepAdjustments:
+            # The X bound is the difference between the breach threshold and the
+            # aggregated CloudWatch metric value
+                 - MetricIntervalLowerBound: "0"
+                   MetricIntervalUpperBound: "15"
+                   ScalingAdjustment: "1"
+                 - MetricIntervalLowerBound: "15"
+                   ScalingAdjustment: "2"
+
+    ScaleDownPolicy:
+        Type: AWS::AutoScaling::ScalingPolicy
+        Properties:
+            AdjustmentType: ChangeInCapacity
+            AutoScalingGroupName: !Ref ECSAutoScalingGroup
+            EstimatedInstanceWarmup: 300
+            MetricAggregationType: Average
+            PolicyType: StepScaling
+            StepAdjustments:
+            # The X bound is the difference between the breach threshold and the
+            # aggregated CloudWatch metric value
+                  - MetricIntervalUpperBound: "0"
+                    ScalingAdjustment: "-1"
+
+    MemoryScaleUpAlarm:
+        Type: "AWS::CloudWatch::Alarm"
+        Properties:
+            ActionsEnabled: true
+            AlarmActions:
+            - !Ref ScaleUpPolicy
+            AlarmDescription: >
+                The memory utilization of the ECS cluster has exceeded 90% for more than
+                one minute. Breaching this alarm should trigger an ASG scale out.
+            ComparisonOperator: GreaterThanOrEqualToThreshold
+            Dimensions:
+            - Name: ClusterName
+              Value: !Ref ECSCluster
+            EvaluationPeriods: "1"
+            MetricName: MemoryReservation
+            Namespace: AWS/ECS
+            Period: "60"
+            Statistic: Average
+            Threshold: "90"
+            Unit: Percent
+
+    MemoryScaleDownAlarm:
+        Type: "AWS::CloudWatch::Alarm"
+        Properties:
+            ActionsEnabled: true
+            AlarmActions:
+            - !Ref ScaleDownPolicy
+            AlarmDescription: >
+                The memory utilization of the ECS cluster has dropped below 45% for more
+                than three minutes. Breaching this alarm should trigger an ASG scale in.
+            ComparisonOperator: LessThanOrEqualToThreshold
+            Dimensions:
+            - Name: ClusterName
+              Value: !Ref ECSCluster
+            EvaluationPeriods: "3"
+            MetricName: MemoryReservation
+            Namespace: AWS/ECS
+            Period: "60"
+            Statistic: Average
+            Threshold: "45"
+            Unit: Percent
+
 Outputs:
   Cluster:
       Description: A reference to the ECS cluster
