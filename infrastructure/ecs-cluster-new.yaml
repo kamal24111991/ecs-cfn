@@ -23,13 +23,7 @@ Parameters:
     InstanceType:
         Description: Which instance type should we use to build the ECS cluster?
         Type: String
-        Default: t2.nano
-
-    ClusterSize:
-        Description: How many ECS hosts do you want to initially deploy?
-        Type: Number
-        Default: 1
-
+        Default: t2.micro
 
     MinSize:
         Type: Number
@@ -43,7 +37,7 @@ Parameters:
 
     Desired:
         Type: Number
-        Default: '2'
+        Default: '1'
         Description: Desired dumber of ECS Instances in the ASG cannot be less than MinSize
 
 
@@ -112,6 +106,7 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName}-ECS-Hosts
+
     LoadBalancer:
         Type: AWS::ElasticLoadBalancingV2::LoadBalancer
         Properties:
@@ -193,6 +188,7 @@ Resources:
                             "Resource": "*"
                         }]
                     }
+
     RolePolicies:
         Type: AWS::IAM::Policy
         Properties:
@@ -233,6 +229,40 @@ Resources:
                     yum install -y aws-cfn-bootstrap
                     /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
                     /opt/aws/bin/cfn-signal -e 0 --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup
+        Metadata:
+            AWS::CloudFormation::Init:
+                config:
+                    files:
+                        "/etc/cfn/cfn-hup.conf":
+                            mode: 000400
+                            owner: root
+                            group: root
+                            content: !Sub |
+                                [main]
+                                stack=${AWS::StackId}
+                                region=${AWS::Region}
+
+                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+                            mode: 000400
+                            owner: root
+                            group: root
+                            content: !Sub |
+                                [cfn-auto-reloader-hook]
+                                triggers=post.update
+                                path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init
+                                action=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
+
+                    commands:
+                        01_add_instance_to_cluster:
+                            command: !Sub echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+                    services:
+                        sysvinit:
+                            cfn-hup:
+                                enabled: true
+                                ensureRunning: true
+                                files:
+                                    - /etc/cfn/cfn-hup.conf
+                                    - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
     ECSAutoScalingGroup:
         Type: AWS::AutoScaling::AutoScalingGroup
